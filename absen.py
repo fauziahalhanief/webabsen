@@ -14,7 +14,7 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="Dashboard Absensi", layout="wide")
 col1, col2 = st.columns([1, 4])
 with col1:
-    st.image("https://cesgs.unair.ac.id/wp-content/uploads/2024/02/Logo-CESGS-UNAIR-400x121.png", use_column_width=True)
+    st.image("https://cesgs.unair.ac.id/wp-content/uploads/2024/02/Logo-CESGS-UNAIR-400x121.png", use_container_width=True)
 with col2:
     st.markdown('<h1 style="text-align:right; color: black;">Dashboard Absensi Karyawan</h1>', unsafe_allow_html=True)
 

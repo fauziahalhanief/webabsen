@@ -265,7 +265,6 @@ warna_biru = "#003C8D"
 warna_kuning = "#FFD700"
 
 # 1. Menu Karyawan: Pengajuan Izin Kerja
-# 1. Menu Karyawan: Pengajuan Izin Kerja
 if menu == "Pengajuan Izin Kerja" and role == "Karyawan":
     st.subheader("Form Pengajuan Izin Tidak Masuk")
     nama = st.text_input("Nama Karyawan")
@@ -334,9 +333,11 @@ elif menu == "Dashboard" and role == "Admin":
             row_cols[7].markdown(link, unsafe_allow_html=True)
             row_cols[8].write(r['status'])
             if row_cols[9].button("Accept", key=f"ac_{r['id']}"):
-                update_izin_status(r['id'], "Pengajuan izin telah diterima"); add_absensi_from_izin(r); st.success(f"ID {r['id']} diterima.")
+            update_izin_status(r['id'], "Pengajuan izin telah diterima")
+            add_absensi_from_izin(r)
+            st.success(f"ID {r['id']} diterima.")
             if row_cols[9].button("Reject", key=f"rj_{r['id']}"):
-                update_izin_status(r['id'], "Pengajuan izin ditolak"); st.warning(f"ID {r['id']} ditolak.")
+            update_izin_status(r['id'], "Pengajuan izin ditolak")
 
 # 3. Menu Admin: Data Pengajuan Izin Diterima
 elif menu == "Data Pengajuan Izin" and role == "Admin":
@@ -411,25 +412,32 @@ elif menu == "Data Absensi" and role == "Admin":
             st.dataframe(styled_df, use_container_width=True)
 
 # 5. Menu Admin: Kalender Absensi
+# --- Saat menampilkan Kalender Absensi Karyawan (Menu Admin: Kalender Absensi) ---
 elif menu == "Kalender Absensi" and role == "Admin":
     st.subheader("Kalender Absensi Karyawan")
     df_all = load_absensi()
     if not df_all.empty:
         df_all['tanggal_dt'] = pd.to_datetime(df_all['tanggal']).dt.date
         grp = df_all.groupby('tanggal_dt').apply(lambda g: pd.Series({
-            'hadir': len(g), 'telat': (g['status'].str.lower()=='telat').sum()
+            'hadir': len(g), 
+            'telat': (g['status'].str.lower()=='telat').sum()
         })).reset_index()
     else:
         grp = pd.DataFrame(columns=['tanggal_dt','hadir','telat'])
+
+    # Load data izin dan filter hanya yang sudah diterima
     izin_all = load_izin()
+    izin_approved = izin_all[izin_all['status'] == 'Pengajuan izin telah diterima']
+
     abs_dict = {}
-    for _,r in izin_all.iterrows():
+    for _,r in izin_approved.iterrows():
         try:
             sd = datetime.strptime(r['tanggal_izin'], "%Y-%m-%d").date()
             for d in range(int(r['jumlah_hari'])):
-                abs_dict[sd+timedelta(days=d)] = abs_dict.get(sd+timedelta(days=d),0)+1
+                abs_dict[sd + timedelta(days=d)] = abs_dict.get(sd + timedelta(days=d), 0) + 1
         except:
             continue
+
     all_dates = set(grp['tanggal_dt']).union(abs_dict.keys())
     events=[]
     for d in sorted(all_dates):
@@ -440,29 +448,39 @@ elif menu == "Kalender Absensi" and role == "Admin":
         events.append({"title":f"H:{h} T:{t} TH:{th}","start":d.strftime("%Y-%m-%d"),"color":"transparent","textColor":"black"})
     calendar(events=events, options={"editable":False,"header":{'"left"':'prev,next today','"center"':'title','"right"':'month,agendaWeek,agendaDay'},"defaultView":"month"})
     st.markdown("---")
+
     sel_date = st.date_input("Pilih Tanggal untuk rincian", value=datetime.today())
     sd_str = sel_date.strftime("%Y-%m-%d")
+
     conn=sqlite3.connect("absensi.db")
     df_abs = pd.read_sql_query("SELECT * FROM absensi WHERE tanggal=?", conn, params=(sd_str,))
     df_iz = pd.read_sql_query("SELECT * FROM izin", conn)
     conn.close()
+
+    # Filter izin yang diterima untuk cek tidak hadir
+    df_iz_approved = df_iz[df_iz['status'] == 'Pengajuan izin telah diterima']
+
     def is_absent(row, sel):
         try:
             s = datetime.strptime(row['tanggal_izin'], "%Y-%m-%d").date()
             e = s + timedelta(days=int(row['jumlah_hari'])-1)
-            return s<=sel<=e
+            return s <= sel <= e
         except:
             return False
-    df_absent = df_iz[df_iz.apply(lambda r: is_absent(r, sel_date), axis=1)]
+
+    df_absent = df_iz_approved[df_iz_approved.apply(lambda r: is_absent(r, sel_date), axis=1)]
     karyawan_hadir = df_abs[~df_abs['nama'].isin(df_absent['nama'])]
+
     hadir_count = len(karyawan_hadir)
     telat_count = len(karyawan_hadir[karyawan_hadir['status'].str.lower()=='telat'])
     tidak_hadir_count = len(df_absent)
+
     st.markdown(f"### Ringkasan Absensi untuk {sel_date.strftime('%A, %d %B %Y')}")
     c1,c2,c3 = st.columns(3)
     if c1.button(f"{hadir_count} karyawan hadir"): st.session_state.detail_type='hadir'
     if c2.button(f"{telat_count} karyawan terlambat"): st.session_state.detail_type='telat'
     if c3.button(f"{tidak_hadir_count} karyawan tidak hadir"): st.session_state.detail_type='tidak_hadir'
+
     if st.session_state.detail_type:
         st.markdown("#### Rincian Data")
         if st.button("Tutup rincian"): st.session_state.detail_type=None

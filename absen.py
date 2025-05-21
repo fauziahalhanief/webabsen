@@ -265,6 +265,7 @@ warna_biru = "#003C8D"
 warna_kuning = "#FFD700"
 
 # 1. Menu Karyawan: Pengajuan Izin Kerja
+# 1. Menu Karyawan: Pengajuan Izin Kerja
 if menu == "Pengajuan Izin Kerja" and role == "Karyawan":
     st.subheader("Form Pengajuan Izin Tidak Masuk")
     nama = st.text_input("Nama Karyawan")
@@ -274,10 +275,25 @@ if menu == "Pengajuan Izin Kerja" and role == "Karyawan":
     tanggal_izin = st.date_input("Tanggal Izin", datetime.today())
     jumlah_hari = st.number_input("Jumlah Hari", min_value=1, step=1)
     file_persetujuan = st.file_uploader("Upload File Persetujuan (JPG, PNG)", type=["jpg", "png"])
+
     if st.button("Ajukan Izin"):
-        blob = file_persetujuan.getvalue() if file_persetujuan else None
-        save_izin(nama, divisi, jenis_pengajuan, str(tanggal_pengajuan), str(tanggal_izin), jumlah_hari, blob)
-        st.success("Pengajuan izin berhasil disimpan!")
+        # Validasi input form
+        if not nama.strip():
+            st.error("Mohon isi Nama Karyawan.")
+        elif not divisi.strip():
+            st.error("Mohon isi Divisi.")
+        elif not jenis_pengajuan:
+            st.error("Mohon pilih Jenis Pengajuan.")
+        elif tanggal_izin < tanggal_pengajuan:
+            st.error("Tanggal Izin tidak boleh lebih awal dari Tanggal Pengajuan.")
+        elif jumlah_hari < 1:
+            st.error("Jumlah Hari harus minimal 1.")
+        elif file_persetujuan is None:
+            st.error("Mohon upload file persetujuan.")
+        else:
+            blob = file_persetujuan.getvalue() if file_persetujuan else None
+            save_izin(nama, divisi, jenis_pengajuan, str(tanggal_pengajuan), str(tanggal_izin), jumlah_hari, blob)
+            st.success("Pengajuan izin berhasil disimpan!")
 
 # 2. Menu Admin: Dashboard
 elif menu == "Dashboard" and role == "Admin":
